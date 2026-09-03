@@ -1,0 +1,28 @@
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+**/build/
+
+# Local SDK configuration
+local.properties
+
+# Kotlin
+.kotlin/
+
+# Native build
+.cxx/
+.externalNativeBuild/
+
+# Generated files
+captures/
+.DS_Store
+
+# APK / App Bundle
+*.apk
+*.aab
+
+# Gradle local JVM settings
+gradle/gradle-daemon-jvm.properties
