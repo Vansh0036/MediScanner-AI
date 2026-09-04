@@ -1,5 +1,3 @@
-
-
 package com.example.mediscannerai.presentation.home
 
 import androidx.compose.foundation.layout.*
@@ -15,11 +13,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
+import com.example.mediscannerai.presentation.navigation.Screen
 import com.example.mediscannerai.ui.theme.MediScannerAITheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(navController: NavHostController) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
@@ -40,7 +41,16 @@ fun HomeScreen() {
                 items.forEach { (label, icon, index) ->
                     NavigationBarItem(
                         selected = selectedTab == index,
-                        onClick = { selectedTab = index },
+                        onClick = {
+                            selectedTab = index
+                            when (index) {
+                                1 -> navController.navigate(Screen.ReportHistory.route)
+                                2 -> navController.navigate(Screen.MedicineInfo.route)
+                                3 -> navController.navigate(Screen.HealthTrends.route)
+                                4 -> navController.navigate(Screen.Settings.route)
+                                // 0 (Home) does nothing — we're already there
+                            }
+                        },
                         icon = { Icon(icon, contentDescription = label) },
                         label = { Text(label) }
                     )
@@ -56,7 +66,6 @@ fun HomeScreen() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Welcome + description
             Column {
                 Text(
                     text = "Understand your lab reports",
@@ -73,7 +82,6 @@ fun HomeScreen() {
                 )
             }
 
-            // Primary action buttons
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -82,13 +90,13 @@ fun HomeScreen() {
                     label = "Scan Report",
                     icon = Icons.Default.PhotoCamera,
                     modifier = Modifier.weight(1f),
-                    onClick = { /* Phase 3: navigate to Scan screen */ }
+                    onClick = { navController.navigate(Screen.Scan.route) }
                 )
                 PrimaryActionButton(
                     label = "Upload Report",
                     icon = Icons.Default.UploadFile,
                     modifier = Modifier.weight(1f),
-                    onClick = { /* Phase 3: navigate to Upload screen */ }
+                    onClick = { navController.navigate(Screen.Upload.route) }
                 )
             }
 
@@ -165,6 +173,6 @@ private fun SectionCard(
 @Composable
 fun HomeScreenPreview() {
     MediScannerAITheme {
-        HomeScreen()
+        HomeScreen(navController = rememberNavController())
     }
 }
