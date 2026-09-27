@@ -1,11 +1,8 @@
 package com.example.mediscannerai.presentation.scanner
 
-
-
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -25,7 +22,10 @@ import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScanReportScreen(onBack: () -> Unit) {
+fun ScanReportScreen(
+    onBack: () -> Unit,
+    onReportCaptured: (Uri) -> Unit
+) {
     val context = LocalContext.current
     var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
@@ -100,9 +100,7 @@ fun ScanReportScreen(onBack: () -> Unit) {
                 AsyncImage(
                     model = capturedImageUri,
                     contentDescription = "Captured report",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp)
+                    modifier = Modifier.fillMaxWidth().height(400.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -112,13 +110,7 @@ fun ScanReportScreen(onBack: () -> Unit) {
                     }) {
                         Text("Retake")
                     }
-                    Button(onClick = {
-                        Toast.makeText(
-                            context,
-                            "Report captured. OCR comes in Phase 5.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }) {
+                    Button(onClick = { onReportCaptured(capturedImageUri!!) }) {
                         Text("Accept")
                     }
                 }

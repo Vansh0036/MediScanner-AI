@@ -1,9 +1,6 @@
 package com.example.mediscannerai.presentation.scanner
 
-
-
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -21,7 +18,10 @@ import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UploadReportScreen(onBack: () -> Unit) {
+fun UploadReportScreen(
+    onBack: () -> Unit,
+    onReportSelected: (Uri, Boolean) -> Unit
+) {
     val context = LocalContext.current
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
@@ -91,9 +91,7 @@ fun UploadReportScreen(onBack: () -> Unit) {
                     AsyncImage(
                         model = selectedImageUri,
                         contentDescription = "Selected report image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(400.dp)
+                        modifier = Modifier.fillMaxWidth().height(400.dp)
                     )
                 } else {
                     Icon(
@@ -114,11 +112,10 @@ fun UploadReportScreen(onBack: () -> Unit) {
                         Text("Remove")
                     }
                     Button(onClick = {
-                        Toast.makeText(
-                            context,
-                            "Report selected. OCR comes in Phase 5.",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        val uri = selectedImageUri ?: selectedPdfUri
+                        if (uri != null) {
+                            onReportSelected(uri, selectedPdfUri != null)
+                        }
                     }) {
                         Text("Use This File")
                     }

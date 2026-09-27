@@ -2,12 +2,16 @@ package com.example.mediscannerai.presentation.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.mediscannerai.presentation.home.HomeScreen
+import com.example.mediscannerai.presentation.scanner.OcrResultScreen
 import com.example.mediscannerai.presentation.scanner.ScanReportScreen
 import com.example.mediscannerai.presentation.scanner.UploadReportScreen
+import java.net.URLDecoder
 
 @Composable
 fun MediScannerNavGraph() {
@@ -21,16 +25,39 @@ fun MediScannerNavGraph() {
             HomeScreen(navController = navController)
         }
         composable(Screen.Scan.route) {
-            ScanReportScreen { navController.popBackStack() }
+            ScanReportScreen(
+                onBack = { navController.popBackStack() },
+                onReportCaptured = { uri ->
+                    navController.navigate(Screen.OcrResult.buildRoute(uri.toString(), isPdf = false))
+                }
+            )
         }
         composable(Screen.Upload.route) {
-            UploadReportScreen { navController.popBackStack() }
+            UploadReportScreen(
+                onBack = { navController.popBackStack() },
+                onReportSelected = { uri, isPdf ->
+                    navController.navigate(Screen.OcrResult.buildRoute(uri.toString(), isPdf))
+                }
+            )
         }
         composable(Screen.ReportPreview.route) {
             PlaceholderScreen("Report Preview") { navController.popBackStack() }
         }
-        composable(Screen.OcrResult.route) {
-            PlaceholderScreen("OCR Result") { navController.popBackStack() }
+        composable(
+            route = Screen.OcrResult.route,
+            arguments = listOf(
+                navArgument("fileUri") { type = NavType.StringType },
+                navArgument("isPdf") { type = NavType.BoolType }
+            )
+        ) { backStackEntry ->
+            val encodedUri = backStackEntry.arguments?.getString("fileUri") ?: ""
+            val fileUri = URLDecoder.decode(encodedUri, "UTF-8")
+            val isPdf = backStackEntry.arguments?.getBoolean("isPdf") ?: false
+            OcrResultScreen(
+                fileUriString = fileUri,
+                isPdf = isPdf,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Screen.AiExplanation.route) {
             PlaceholderScreen("AI Explanation") { navController.popBackStack() }
