@@ -17,9 +17,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.mediscannerai.domain.model.ParsedReport
+import com.example.mediscannerai.domain.model.TestResult
+import com.example.mediscannerai.domain.usecase.ParseReportTextUseCase
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text as VisionText
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -31,6 +36,8 @@ private sealed class OcrState {
     data class Success(val text: String) : OcrState()
     data class Error(val message: String) : OcrState()
 }
+
+private enum class ResultView { RawText, Structured }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,18 +115,46 @@ fun OcrResultScreen(
                 }
 
                 is OcrState.Success -> {
-                    Text("Extracted Text", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Card(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        SelectionContainer {
-                            Text(
-                                text = current.text,
-                                modifier = Modifier
-                                    .padding(12.dp)
-                                    .verticalScroll(rememberScrollState())
+                    val parsedReport = remember(current.text) {
+                        ParseReportTextUseCase().invoke(current.text)
+                    }
+                    var viewMode by remember { mutableStateOf(ResultView.RawText) }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = viewMode == ResultView.RawText,
+                            onClick = { viewMode = ResultView.RawText },
+                            label = { Text("Raw Text") }
+                        )
+                        FilterChip(
+                            selected = viewMode == ResultView.Structured,
+                            onClick = { viewMode = ResultView.Structured },
+                            label = { Text("Structured (${parsedReport.results.size})") }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    when (viewMode) {
+                        ResultView.RawText -> {
+                            Card(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                                SelectionContainer {
+                                    Text(
+                                        text = current.text,
+                                        modifier = Modifier
+                                            .padding(12.dp)
+                                            .verticalScroll(rememberScrollState())
+                                    )
+                                }
+                            }
+                        }
+                        ResultView.Structured -> {
+                            StructuredResultsView(
+                                parsedReport = parsedReport,
+                                modifier = Modifier.weight(1f).fillMaxWidth()
                             )
                         }
                     }
+
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedButton(onClick = { retryTrigger++ }) {
@@ -129,7 +164,7 @@ fun OcrResultScreen(
                             onClick = {
                                 android.widget.Toast.makeText(
                                     context,
-                                    "Report processing continues in Phase 6.",
+                                    "AI explanation comes in Phase 7.",
                                     android.widget.Toast.LENGTH_SHORT
                                 ).show()
                             },
@@ -144,9 +179,74 @@ fun OcrResultScreen(
     }
 }
 
+@Composable
+private fun StructuredResultsView(parsedReport: ParsedReport, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
+        parsedReport.reportDate?.let {
+            Text("Report date: $it", style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        if (parsedReport.results.isEmpty()) {
+            Text(
+                "This app couldn't automatically identify individual test values from " +
+                        "this report's layout. You can still view the full extracted text " +
+                        "using the Raw Text tab.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            parsedReport.results.forEach { result ->
+                TestResultCard(result)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            Text(
+                "These values are shown exactly as extracted from your report. This app " +
+                        "does not interpret them — please discuss results with your doctor.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun TestResultCard(result: TestResult) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    result.testName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                result.flag?.let { flag ->
+                    AssistChip(onClick = {}, label = { Text(flag) })
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            val valueText = buildString {
+                append(result.value ?: "—")
+                result.unit?.let { append(" $it") }
+            }
+            Text("Value: $valueText", style = MaterialTheme.typography.bodyMedium)
+            result.referenceRange?.let {
+                Text(
+                    "Reference range: $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 private suspend fun extractTextFromImage(context: Context, uri: Uri): String {
     val image = InputImage.fromFilePath(context, uri)
-    return recognizeText(image)
+    val visionText = recognizeTextBlocks(image)
+    return reconstructRows(visionText)
 }
 
 private suspend fun extractTextFromPdf(context: Context, uri: Uri): String {
@@ -157,7 +257,7 @@ private suspend fun extractTextFromPdf(context: Context, uri: Uri): String {
     try {
         for (pageIndex in 0 until renderer.pageCount) {
             val page = renderer.openPage(pageIndex)
-            val scale = 2 // render bigger than screen size for sharper OCR
+            val scale = 2
             val bitmap = Bitmap.createBitmap(
                 page.width * scale,
                 page.height * scale,
@@ -167,8 +267,8 @@ private suspend fun extractTextFromPdf(context: Context, uri: Uri): String {
             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
             page.close()
 
-            val pageText = recognizeText(InputImage.fromBitmap(bitmap, 0))
-            builder.append(pageText)
+            val visionText = recognizeTextBlocks(InputImage.fromBitmap(bitmap, 0))
+            builder.append(reconstructRows(visionText))
             if (pageIndex != renderer.pageCount - 1) {
                 builder.append("\n\n--- Page ${pageIndex + 2} ---\n\n")
             }
@@ -180,11 +280,45 @@ private suspend fun extractTextFromPdf(context: Context, uri: Uri): String {
     return builder.toString()
 }
 
-private suspend fun recognizeText(image: InputImage): String {
+private suspend fun recognizeTextBlocks(image: InputImage): VisionText {
     val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     return suspendCancellableCoroutine { continuation ->
         recognizer.process(image)
-            .addOnSuccessListener { visionText -> continuation.resume(visionText.text) }
+            .addOnSuccessListener { visionText -> continuation.resume(visionText) }
             .addOnFailureListener { exception -> continuation.resumeWithException(exception) }
     }
+}
+
+/**
+ * ML Kit reads text in the blocks it visually detects, which for wide
+ * multi-column tables is often column-by-column rather than row-by-row.
+ * This rebuilds proper rows by grouping every recognized line whose
+ * vertical position overlaps, then ordering each row's pieces left to right —
+ * turning a scrambled column dump back into a readable table.
+ */
+private fun reconstructRows(visionText: VisionText): String {
+    data class PositionedLine(val text: String, val top: Int, val bottom: Int, val left: Int)
+
+    val lines = visionText.textBlocks
+        .flatMap { block -> block.lines }
+        .mapNotNull { line -> line.boundingBox?.let { box -> PositionedLine(line.text, box.top, box.bottom, box.left) } }
+        .sortedBy { it.top }
+
+    if (lines.isEmpty()) return visionText.text
+
+    val rows = mutableListOf<MutableList<PositionedLine>>()
+    for (line in lines) {
+        val lineHeight = (line.bottom - line.top).coerceAtLeast(1)
+        val matchingRow = rows.find { row ->
+            val rowTop = row.minOf { it.top }
+            val rowBottom = row.maxOf { it.bottom }
+            val overlap = minOf(line.bottom, rowBottom) - maxOf(line.top, rowTop)
+            overlap > lineHeight * 0.5
+        }
+        if (matchingRow != null) matchingRow.add(line) else rows.add(mutableListOf(line))
+    }
+
+    return rows
+        .sortedBy { row -> row.minOf { it.top } }
+        .joinToString("\n") { row -> row.sortedBy { it.left }.joinToString("    ") { it.text } }
 }
