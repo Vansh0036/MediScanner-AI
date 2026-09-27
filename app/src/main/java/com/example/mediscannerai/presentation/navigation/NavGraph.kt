@@ -1,12 +1,13 @@
 package com.example.mediscannerai.presentation.navigation
 
-
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.mediscannerai.presentation.home.HomeScreen
+import com.example.mediscannerai.presentation.scanner.ScanReportScreen
+import com.example.mediscannerai.presentation.scanner.UploadReportScreen
 
 @Composable
 fun MediScannerNavGraph() {
@@ -20,10 +21,10 @@ fun MediScannerNavGraph() {
             HomeScreen(navController = navController)
         }
         composable(Screen.Scan.route) {
-            PlaceholderScreen("Scan Report") { navController.popBackStack() }
+            ScanReportScreen { navController.popBackStack() }
         }
         composable(Screen.Upload.route) {
-            PlaceholderScreen("Upload Report") { navController.popBackStack() }
+            UploadReportScreen { navController.popBackStack() }
         }
         composable(Screen.ReportPreview.route) {
             PlaceholderScreen("Report Preview") { navController.popBackStack() }
