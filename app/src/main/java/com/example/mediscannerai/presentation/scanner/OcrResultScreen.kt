@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.mediscannerai.data.local.ReportSessionHolder
 import com.example.mediscannerai.domain.model.ParsedReport
 import com.example.mediscannerai.domain.model.TestResult
 import com.example.mediscannerai.domain.usecase.ParseReportTextUseCase
@@ -44,7 +45,8 @@ private enum class ResultView { RawText, Structured }
 fun OcrResultScreen(
     fileUriString: String,
     isPdf: Boolean,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onContinue: () -> Unit
 ) {
     val context = LocalContext.current
     var state by remember { mutableStateOf<OcrState>(OcrState.Loading) }
@@ -162,11 +164,8 @@ fun OcrResultScreen(
                         }
                         Button(
                             onClick = {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "AI explanation comes in Phase 7.",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                                ReportSessionHolder.currentReport = parsedReport
+                                onContinue()
                             },
                             modifier = Modifier.weight(1f)
                         ) {
@@ -289,13 +288,6 @@ private suspend fun recognizeTextBlocks(image: InputImage): VisionText {
     }
 }
 
-/**
- * ML Kit reads text in the blocks it visually detects, which for wide
- * multi-column tables is often column-by-column rather than row-by-row.
- * This rebuilds proper rows by grouping every recognized line whose
- * vertical position overlaps, then ordering each row's pieces left to right —
- * turning a scrambled column dump back into a readable table.
- */
 private fun reconstructRows(visionText: VisionText): String {
     data class PositionedLine(val text: String, val top: Int, val bottom: Int, val left: Int)
 

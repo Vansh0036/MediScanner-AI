@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.mediscannerai.presentation.home.HomeScreen
+import com.example.mediscannerai.presentation.scanner.AiExplanationScreen
 import com.example.mediscannerai.presentation.scanner.OcrResultScreen
 import com.example.mediscannerai.presentation.scanner.ScanReportScreen
 import com.example.mediscannerai.presentation.scanner.UploadReportScreen
@@ -56,11 +57,12 @@ fun MediScannerNavGraph() {
             OcrResultScreen(
                 fileUriString = fileUri,
                 isPdf = isPdf,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onContinue = { navController.navigate(Screen.AiExplanation.route) }
             )
         }
         composable(Screen.AiExplanation.route) {
-            PlaceholderScreen("AI Explanation") { navController.popBackStack() }
+            AiExplanationScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.DoctorQuestions.route) {
             PlaceholderScreen("Doctor Questions") { navController.popBackStack() }
