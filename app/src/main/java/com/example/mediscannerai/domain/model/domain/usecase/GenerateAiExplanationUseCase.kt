@@ -1,10 +1,10 @@
 package com.example.mediscannerai.domain.usecase
 
-import com.example.mediscannerai.data.remote.GeminiExplanationService
+import com.example.mediscannerai.data.remote.GroqExplanationService
 import com.example.mediscannerai.domain.model.ParsedReport
 
 class GenerateAiExplanationUseCase(
-    private val service: GeminiExplanationService = GeminiExplanationService()
+    private val service: GroqExplanationService = GroqExplanationService()
 ) {
     suspend operator fun invoke(report: ParsedReport): String {
         return service.generateExplanation(

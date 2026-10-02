@@ -1,11 +1,12 @@
 package com.example.mediscannerai.presentation.scanner
 
+
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,40 +14,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.mediscannerai.data.local.ReportSessionHolder
-import com.example.mediscannerai.domain.usecase.GenerateAiExplanationUseCase
+import com.example.mediscannerai.domain.usecase.GenerateDoctorQuestionsUseCase
 
-private sealed class ExplanationState {
-    data object Loading : ExplanationState()
-    data class Success(val text: String) : ExplanationState()
-    data class Error(val message: String) : ExplanationState()
-    data object NoReport : ExplanationState()
+private sealed class QuestionsState {
+    data object Loading : QuestionsState()
+    data class Success(val questions: List<String>) : QuestionsState()
+    data class Error(val message: String) : QuestionsState()
+    data object NoReport : QuestionsState()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AiExplanationScreen(onBack: () -> Unit, onViewDoctorQuestions: () -> Unit) {
-    var state by remember { mutableStateOf<ExplanationState>(ExplanationState.Loading) }
+fun DoctorQuestionsScreen(onBack: () -> Unit) {
+    var state by remember { mutableStateOf<QuestionsState>(QuestionsState.Loading) }
     var retryTrigger by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(retryTrigger) {
         val report = ReportSessionHolder.currentReport
         if (report == null) {
-            state = ExplanationState.NoReport
+            state = QuestionsState.NoReport
             return@LaunchedEffect
         }
-        state = ExplanationState.Loading
+        state = QuestionsState.Loading
         state = try {
-            val explanation = GenerateAiExplanationUseCase().invoke(report)
-            ExplanationState.Success(explanation)
+            val questions = GenerateDoctorQuestionsUseCase().invoke(report)
+            QuestionsState.Success(questions)
         } catch (e: Exception) {
-            ExplanationState.Error(e.localizedMessage ?: "Something went wrong. Please try again.")
+            QuestionsState.Error(e.localizedMessage ?: "Something went wrong. Please try again.")
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AI Explanation") },
+                title = { Text("Doctor Questions") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -62,33 +63,26 @@ fun AiExplanationScreen(onBack: () -> Unit, onViewDoctorQuestions: () -> Unit) {
                 .padding(16.dp)
         ) {
             when (val current = state) {
-                is ExplanationState.Loading -> {
+                is QuestionsState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("Generating an explanation…")
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "This app does not diagnose. It only explains what is on your report.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
+                            Text("Preparing questions for your doctor visit…")
                         }
                     }
                 }
 
-                is ExplanationState.NoReport -> {
+                is QuestionsState.NoReport -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            "No report was found to explain. Please scan or upload a report first.",
+                            "No report was found. Please scan or upload a report first.",
                             textAlign = TextAlign.Center
                         )
                     }
                 }
 
-                is ExplanationState.Error -> {
+                is QuestionsState.Error -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
@@ -104,23 +98,19 @@ fun AiExplanationScreen(onBack: () -> Unit, onViewDoctorQuestions: () -> Unit) {
                     }
                 }
 
-                is ExplanationState.Success -> {
-                    Card(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        SelectionContainer {
-                            MarkdownText(
-                                markdown = current.text,
-                                modifier = Modifier
-                                    .padding(16.dp)
-                                    .verticalScroll(rememberScrollState())
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = onViewDoctorQuestions,
-                        modifier = Modifier.fillMaxWidth()
+                is QuestionsState.Success -> {
+                    Text(
+                        "Questions you might ask your doctor about this report:",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text("Questions for My Doctor")
+                        items(current.questions) { question ->
+                            QuestionCard(question)
+                        }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Card(
@@ -130,8 +120,8 @@ fun AiExplanationScreen(onBack: () -> Unit, onViewDoctorQuestions: () -> Unit) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "This is educational information only, not a medical diagnosis. " +
-                                    "Always consult a qualified healthcare professional about your results.",
+                            "These are discussion starters only, not medical advice. " +
+                                    "Your doctor can give guidance specific to you.",
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer
@@ -139,6 +129,25 @@ fun AiExplanationScreen(onBack: () -> Unit, onViewDoctorQuestions: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun QuestionCard(question: String) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                Icons.Default.QuestionAnswer,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(question, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
