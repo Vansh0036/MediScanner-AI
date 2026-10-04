@@ -10,6 +10,7 @@ import androidx.navigation.navArgument
 import com.example.mediscannerai.presentation.history.HistoryScreen
 import com.example.mediscannerai.presentation.history.SavedReportScreen
 import com.example.mediscannerai.presentation.home.HomeScreen
+import com.example.mediscannerai.presentation.medicine.MedicineInfoScreen
 import com.example.mediscannerai.presentation.scanner.AiExplanationScreen
 import com.example.mediscannerai.presentation.scanner.DoctorQuestionsScreen
 import com.example.mediscannerai.presentation.scanner.OcrResultScreen
@@ -100,7 +101,7 @@ fun MediScannerNavGraph() {
             )
         }
         composable(Screen.MedicineInfo.route) {
-            PlaceholderScreen("Medicine Information") { navController.popBackStack() }
+            MedicineInfoScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.MedicineReminders.route) {
             PlaceholderScreen("Medicine Reminders") { navController.popBackStack() }
