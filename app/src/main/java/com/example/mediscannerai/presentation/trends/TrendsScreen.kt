@@ -6,9 +6,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,15 +24,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.mediscannerai.data.local.TrendPrefs
 import com.example.mediscannerai.domain.usecase.TrendPoint
 import com.example.mediscannerai.domain.usecase.TrendSeries
 import java.text.SimpleDateFormat
@@ -42,11 +52,21 @@ fun TrendsScreen(
     onBack: () -> Unit,
     viewModel: TrendsViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val trends by viewModel.trends.collectAsStateWithLifecycle()
     var selectedName by rememberSaveable { mutableStateOf<String?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var pinned by remember { mutableStateOf(TrendPrefs.getPinned(context)) }
     val selected = trends?.firstOrNull { it.testName == selectedName }
 
     BackHandler(enabled = selected != null) { selectedName = null }
+
+    fun togglePin(name: String) {
+        val updated = if (name in pinned) pinned - name else pinned + name
+        pinned = updated
+        TrendPrefs.setPinned(context, updated)
+    }
 
     Scaffold(
         topBar = {
@@ -86,19 +106,66 @@ fun TrendsScreen(
                 selected != null -> TrendDetail(selected)
 
                 else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            Text(
-                                "Tap a test to see how your recorded values changed between reports.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        items(list, key = { it.testName }) { series ->
-                            SeriesCard(series) { selectedName = series.testName }
+                    // Pinned tests first; the sort keeps the existing order otherwise.
+                    val visible = remember(list, query, pinned) {
+                        list.filter { it.testName.contains(query.trim(), ignoreCase = true) }
+                            .sortedByDescending { it.testName in pinned }
+                    }
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { if (it.length <= 40) query = it },
+                            label = { Text("Search tests") },
+                            placeholder = { Text("For example: Ferritin") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon = {
+                                if (query.isNotEmpty()) {
+                                    IconButton(onClick = { query = "" }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp)
+                        )
+
+                        if (visible.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().padding(24.dp),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                Text(
+                                    "No tests match \"${query.trim()}\".",
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                item {
+                                    Text(
+                                        "Tap a test to see its chart. Tap the star to keep a test at the top.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                items(visible, key = { it.testName }) { series ->
+                                    SeriesCard(
+                                        series = series,
+                                        isPinned = series.testName in pinned,
+                                        onTogglePin = { togglePin(series.testName) },
+                                        onClick = { selectedName = series.testName }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -108,11 +175,16 @@ fun TrendsScreen(
 }
 
 @Composable
-private fun SeriesCard(series: TrendSeries, onClick: () -> Unit) {
+private fun SeriesCard(
+    series: TrendSeries,
+    isPinned: Boolean,
+    onTogglePin: () -> Unit,
+    onClick: () -> Unit
+) {
     val latest = series.points.last()
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -133,6 +205,18 @@ private fun SeriesCard(series: TrendSeries, onClick: () -> Unit) {
                     latest.dateLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onTogglePin) {
+                Icon(
+                    imageVector = if (isPinned) Icons.Default.Star else Icons.Default.StarBorder,
+                    contentDescription = if (isPinned) {
+                        "Unpin ${series.testName}"
+                    } else {
+                        "Pin ${series.testName} to the top"
+                    },
+                    tint = if (isPinned) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
