@@ -13,6 +13,11 @@ private val FLAG_ONLY_REGEX = Regex("""^[HL]$""")
 private val NUMBER_ONLY_REGEX = Regex("""^[\d.]+$""")
 private val DATE_REGEX = Regex("""\d{2}/\d{2}/\d{4}""")
 
+// Row names that are report details (IDs, dates, contact fields), not lab tests.
+private val NON_TEST_NAME_REGEX = Regex(
+    """(?i)\b(registration|reg|permanent|uhid|barcode|phone|mobile|tel|contact|age|sex|gender|date|page|bill|invoice|sample|patient|doctor|referred|center|centre|address|id)\b"""
+)
+
 class ParseReportTextUseCase {
 
     operator fun invoke(rawText: String): ParsedReport {
@@ -33,7 +38,8 @@ class ParseReportTextUseCase {
      * separate columns on one row). Splits each row on 2+ spaces — the
      * column separator produced by row reconstruction — then classifies
      * each piece by what it looks like, rather than expecting one rigid
-     * pattern. Skips any row with no test name or no numeric value.
+     * pattern. Skips any row with no test name or no numeric value, and
+     * rows whose name is a report detail such as a registration number.
      */
     private fun extractTabularResults(lines: List<String>): List<TestResult> {
         val results = mutableListOf<TestResult>()
@@ -43,6 +49,7 @@ class ParseReportTextUseCase {
 
             val name = columns.first().removeSuffix(":").trim()
             if (name.isBlank() || name.any { it.isDigit() }) continue
+            if (NON_TEST_NAME_REGEX.containsMatchIn(name)) continue
 
             var value: String? = null
             var unit: String? = null

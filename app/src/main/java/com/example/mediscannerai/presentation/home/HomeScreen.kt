@@ -147,13 +147,15 @@ fun HomeScreen(navController: NavHostController) {
             SectionCard(
                 title = "Medicine Information",
                 icon = Icons.Default.Favorite,
-                emptyText = "Search general educational information about medicines."
+                emptyText = "Search general educational information about medicines.",
+                onClick = { navController.navigate(Screen.MedicineInfo.route) }
             )
 
             SectionCard(
                 title = "Health Trends",
                 icon = Icons.Default.DateRange,
-                emptyText = "Once you've saved a few reports, track changes over time here."
+                emptyText = "Once you've saved a few reports, track changes over time here.",
+                onClick = { navController.navigate(Screen.HealthTrends.route) }
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -188,9 +190,13 @@ private fun PrimaryActionButton(
 private fun SectionCard(
     title: String,
     icon: ImageVector,
-    emptyText: String
+    emptyText: String,
+    onClick: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = null)

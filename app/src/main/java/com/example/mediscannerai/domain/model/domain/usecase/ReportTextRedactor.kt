@@ -50,6 +50,12 @@ object ReportTextRedactor {
     // A line that is only a case code such as "C426004".
     private val codeLineRegex = Regex("""(?m)^[ \t]*[A-Z]{1,4}\d{4,}[ \t]*$""")
 
+    // A printed barcode line such as "00 1 4 7 9 4 *" or "*0014794*": digits
+    // (possibly spaced out) with an asterisk. It repeats the registration number.
+    private val barcodeLineRegex = Regex(
+        """(?m)^[ \t]*(?:\*[ \t]*\d(?:[ \t]*\d){4,}[ \t]*\*?|\d(?:[ \t]*\d){4,}[ \t]*\*)[ \t]*$"""
+    )
+
     private val blankRunRegex = Regex("""\n{3,}""")
 
     fun redact(text: String): String {
@@ -64,8 +70,8 @@ object ReportTextRedactor {
         result = result.replace(dobRegex, "\$1: [removed]")
         result = result.replace(aadhaarRegex, "[id removed]")
         result = result.replace(codeLineRegex, "")
+        result = result.replace(barcodeLineRegex, "")
         result = result.replace(blankRunRegex, "\n\n")
         return result.trim()
     }
 }
-
