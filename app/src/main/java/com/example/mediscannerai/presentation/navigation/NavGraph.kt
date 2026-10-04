@@ -16,6 +16,7 @@ import com.example.mediscannerai.presentation.scanner.DoctorQuestionsScreen
 import com.example.mediscannerai.presentation.scanner.OcrResultScreen
 import com.example.mediscannerai.presentation.scanner.ScanReportScreen
 import com.example.mediscannerai.presentation.scanner.UploadReportScreen
+import com.example.mediscannerai.presentation.settings.SettingsScreen
 import com.example.mediscannerai.presentation.trends.TrendsScreen
 import java.net.URLDecoder
 
@@ -111,7 +112,7 @@ fun MediScannerNavGraph() {
             TrendsScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.Settings.route) {
-            PlaceholderScreen("Settings") { navController.popBackStack() }
+            SettingsScreen(onBack = { navController.popBackStack() })
         }
     }
 }
