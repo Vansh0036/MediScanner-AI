@@ -16,6 +16,7 @@ import com.example.mediscannerai.presentation.scanner.DoctorQuestionsScreen
 import com.example.mediscannerai.presentation.scanner.OcrResultScreen
 import com.example.mediscannerai.presentation.scanner.ScanReportScreen
 import com.example.mediscannerai.presentation.scanner.UploadReportScreen
+import com.example.mediscannerai.presentation.trends.TrendsScreen
 import java.net.URLDecoder
 
 @Composable
@@ -107,7 +108,7 @@ fun MediScannerNavGraph() {
             PlaceholderScreen("Medicine Reminders") { navController.popBackStack() }
         }
         composable(Screen.HealthTrends.route) {
-            PlaceholderScreen("Health Trends") { navController.popBackStack() }
+            TrendsScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.Settings.route) {
             PlaceholderScreen("Settings") { navController.popBackStack() }
