@@ -15,15 +15,26 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mediscannerai.domain.usecase.TrendPoint
 import com.example.mediscannerai.domain.usecase.TrendSeries
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,6 +143,8 @@ private fun SeriesCard(series: TrendSeries, onClick: () -> Unit) {
 private fun TrendDetail(series: TrendSeries) {
     val points = series.points
     val unit = series.unit?.let { " $it" } ?: ""
+    val refRange = remember(series.referenceRange) { parseRange(series.referenceRange) }
+    var showRange by rememberSaveable { mutableStateOf(true) }
 
     Column(
         modifier = Modifier
@@ -159,13 +172,41 @@ private fun TrendDetail(series: TrendSeries) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(sentence, style = MaterialTheme.typography.bodyLarge)
                     Spacer(modifier = Modifier.height(12.dp))
-                    TrendChart(points)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(first.dateLabel, style = MaterialTheme.typography.bodySmall)
-                        Text(last.dateLabel, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "Value" + (series.unit?.let { " ($it)" } ?: "") + " over time",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TrendChart(
+                        points = points,
+                        refRange = if (showRange) refRange else null
+                    )
+                    if (refRange != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = showRange, onCheckedChange = { showRange = it })
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Show reference range", style = MaterialTheme.typography.bodyMedium)
+                                if (showRange) {
+                                    Text(
+                                        "Shaded band: the range printed on the report " +
+                                                "(${formatValue(refRange.first)} to ${formatValue(refRange.second)})",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                StatCard("Lowest", points.minOf { it.value }, unit, Modifier.weight(1f))
+                StatCard("Highest", points.maxOf { it.value }, unit, Modifier.weight(1f))
+                StatCard("Latest", last.value, unit, Modifier.weight(1f))
             }
         } else {
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -220,44 +261,167 @@ private fun TrendDetail(series: TrendSeries) {
 }
 
 @Composable
-private fun TrendChart(points: List<TrendPoint>) {
-    val lineColor = MaterialTheme.colorScheme.primary
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
-
-    Canvas(modifier = Modifier.fillMaxWidth().height(200.dp)) {
-        val pad = 20.dp.toPx()
-        val w = size.width - 2 * pad
-        val h = size.height - 2 * pad
-
-        val minV = points.minOf { it.value }
-        val maxV = points.maxOf { it.value }
-        val vSpan = if (maxV - minV < 1e-9) 1.0 else maxV - minV
-        val minT = points.first().timeMillis
-        val tSpan = (points.last().timeMillis - minT).let { if (it == 0L) 1L else it }
-
-        fun xOf(p: TrendPoint): Float =
-            pad + w * ((p.timeMillis - minT).toFloat() / tSpan.toFloat())
-
-        fun yOf(p: TrendPoint): Float =
-            pad + h * (1f - ((p.value - minV) / vSpan).toFloat())
-
-        for (i in 0..2) {
-            val y = pad + h * i / 2f
-            drawLine(gridColor, Offset(pad, y), Offset(size.width - pad, y), strokeWidth = 1.dp.toPx())
-        }
-
-        val path = Path()
-        points.forEachIndexed { index, p ->
-            val x = xOf(p)
-            val y = yOf(p)
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawPath(path, lineColor, style = Stroke(width = 3.dp.toPx()))
-        points.forEach { p ->
-            drawCircle(lineColor, radius = 5.dp.toPx(), center = Offset(xOf(p), yOf(p)))
+private fun StatCard(label: String, value: Double, unit: String, modifier: Modifier = Modifier) {
+    Card(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                formatValue(value),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (unit.isNotBlank()) {
+                Text(
+                    unit.trim(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
+
+@Composable
+private fun TrendChart(
+    points: List<TrendPoint>,
+    refRange: Pair<Double, Double>?
+) {
+    val measurer = rememberTextMeasurer()
+    val lineColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val valueColor = MaterialTheme.colorScheme.onSurface
+    val bandColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f)
+
+    val shortFormat = remember { SimpleDateFormat("MMM yy", Locale.getDefault()) }
+    val shortLabels = remember(points) { points.map { shortFormat.format(Date(it.timeMillis)) } }
+
+    Canvas(modifier = Modifier.fillMaxWidth().height(260.dp)) {
+        val axisStyle = TextStyle(color = labelColor, fontSize = 11.sp)
+        val valueStyle = TextStyle(color = valueColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+
+        val left = 44.dp.toPx()
+        val right = 12.dp.toPx()
+        val top = 22.dp.toPx()
+        val bottom = 28.dp.toPx()
+        val plotW = size.width - left - right
+        val plotH = size.height - top - bottom
+        val plotBottom = top + plotH
+
+        // Value range of the axis (includes the reference band when it is shown).
+        var lo = points.minOf { it.value }
+        var hi = points.maxOf { it.value }
+        if (refRange != null) {
+            lo = min(lo, refRange.first)
+            hi = max(hi, refRange.second)
+        }
+        val rawSpan = hi - lo
+        val pad = if (rawSpan < 1e-9) max(abs(hi) * 0.1, 1.0) else rawSpan * 0.1
+        var axisMin = lo - pad
+        val axisMax = hi + pad
+        if (lo >= 0 && axisMin < 0) axisMin = 0.0
+        val axisSpan = axisMax - axisMin
+
+        val minT = points.first().timeMillis
+        val tSpan = (points.last().timeMillis - minT).let { if (it == 0L) 1L else it }
+
+        fun yOf(v: Double): Float =
+            top + plotH * (1f - ((v - axisMin) / axisSpan).toFloat())
+
+        fun xOf(t: Long): Float =
+            left + plotW * ((t - minT).toFloat() / tSpan.toFloat())
+
+        // Reference range band
+        if (refRange != null) {
+            val yHigh = yOf(refRange.second)
+            val yLow = yOf(refRange.first)
+            drawRect(bandColor, topLeft = Offset(left, yHigh), size = Size(plotW, yLow - yHigh))
+        }
+
+        // Grid lines with value labels on the Y axis
+        for (i in 0..3) {
+            val v = axisMin + axisSpan * i / 3.0
+            val y = yOf(v)
+            drawLine(gridColor, Offset(left, y), Offset(size.width - right, y), strokeWidth = 1.dp.toPx())
+            val layout = measurer.measure(formatTick(v, axisSpan), axisStyle)
+            drawText(
+                layout,
+                topLeft = Offset(left - 6.dp.toPx() - layout.size.width, y - layout.size.height / 2f)
+            )
+        }
+
+        // Area under the line
+        val area = Path().apply {
+            moveTo(xOf(points.first().timeMillis), plotBottom)
+            points.forEach { lineTo(xOf(it.timeMillis), yOf(it.value)) }
+            lineTo(xOf(points.last().timeMillis), plotBottom)
+            close()
+        }
+        drawPath(area, lineColor.copy(alpha = 0.12f))
+
+        // The line
+        val line = Path()
+        points.forEachIndexed { index, p ->
+            val x = xOf(p.timeMillis)
+            val y = yOf(p.value)
+            if (index == 0) line.moveTo(x, y) else line.lineTo(x, y)
+        }
+        drawPath(line, lineColor, style = Stroke(width = 3.dp.toPx()))
+
+        // Points, with the latest one larger
+        points.forEachIndexed { index, p ->
+            val radius = if (index == points.lastIndex) 7.dp.toPx() else 5.dp.toPx()
+            drawCircle(lineColor, radius = radius, center = Offset(xOf(p.timeMillis), yOf(p.value)))
+        }
+
+        // Value above each point (only when there are few points)
+        if (points.size <= 8) {
+            points.forEach { p ->
+                val layout = measurer.measure(formatValue(p.value), valueStyle)
+                val x = (xOf(p.timeMillis) - layout.size.width / 2f)
+                    .coerceIn(left - 4.dp.toPx(), size.width - layout.size.width.toFloat())
+                val y = max(yOf(p.value) - 10.dp.toPx() - layout.size.height, 0f)
+                drawText(layout, topLeft = Offset(x, y))
+            }
+        }
+
+        // Dates on the X axis
+        val n = points.size
+        val indices = if (n <= 4) points.indices.toList()
+        else listOf(0, n / 3, 2 * n / 3, n - 1).distinct()
+        var lastRight = -1f
+        indices.forEach { i ->
+            val layout = measurer.measure(shortLabels[i], axisStyle)
+            val x = (xOf(points[i].timeMillis) - layout.size.width / 2f)
+                .coerceIn(left - 4.dp.toPx(), size.width - layout.size.width.toFloat())
+            if (x >= lastRight + 6.dp.toPx()) {
+                drawText(layout, topLeft = Offset(x, plotBottom + 8.dp.toPx()))
+                lastRight = x + layout.size.width
+            }
+        }
+    }
+}
+
+/** Reads a range such as "12-18" or "11.5 - 16.5". Returns null if it can't. */
+private fun parseRange(text: String?): Pair<Double, Double>? {
+    if (text == null) return null
+    val match = Regex("""(\d+(?:\.\d+)?)\s*[-~–]\s*(\d+(?:\.\d+)?)""").find(text) ?: return null
+    val a = match.groupValues[1].toDoubleOrNull() ?: return null
+    val b = match.groupValues[2].toDoubleOrNull() ?: return null
+    return if (a < b) a to b else null
+}
+
+private fun formatTick(value: Double, span: Double): String =
+    if (span >= 10) String.format(Locale.US, "%.0f", value)
+    else String.format(Locale.US, "%.1f", value)
 
 private fun formatValue(value: Double): String =
     if (value % 1.0 == 0.0) value.toLong().toString()
