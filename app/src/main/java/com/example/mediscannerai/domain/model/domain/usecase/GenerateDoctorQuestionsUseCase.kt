@@ -30,6 +30,9 @@ class GenerateDoctorQuestionsUseCase(
             "No individual test values could be automatically identified; base your questions on the raw text below."
         }
 
+        // Personal details are removed before the text leaves the phone.
+        val cleanedText = ReportTextRedactor.redact(report.rawText)
+
         return """
             Here is a user's lab report. Generate discussion questions for their doctor
             visit following your instructions exactly.
@@ -38,7 +41,7 @@ class GenerateDoctorQuestionsUseCase(
 
             Full raw OCR text:
             ---
-            ${report.rawText}
+            $cleanedText
             ---
         """.trimIndent()
     }

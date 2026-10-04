@@ -29,6 +29,9 @@ class GenerateAiExplanationUseCase(
             "No individual test values could be automatically identified from this report's layout."
         }
 
+        // Personal details are removed before the text leaves the phone.
+        val cleanedText = ReportTextRedactor.redact(report.rawText)
+
         return """
             Here is the raw text extracted from a user's lab report via OCR. It may
             contain OCR errors (misread characters, garbled formatting) — use your
@@ -39,7 +42,7 @@ class GenerateAiExplanationUseCase(
 
             Full raw OCR text:
             ---
-            ${report.rawText}
+            $cleanedText
             ---
 
             Please explain this report to the user following your instructions exactly.

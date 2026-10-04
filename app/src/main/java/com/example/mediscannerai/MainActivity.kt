@@ -8,15 +8,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.lifecycleScope
 import com.example.mediscannerai.data.local.AppSettings
+import com.example.mediscannerai.data.local.ReportMigration
 import com.example.mediscannerai.data.local.ThemeMode
 import com.example.mediscannerai.presentation.navigation.MediScannerNavGraph
 import com.example.mediscannerai.ui.theme.MediScannerAITheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettings.load(applicationContext)
+        lifecycleScope.launch { ReportMigration.run(applicationContext) }
 
         setContent {
             val darkTheme = when (AppSettings.themeMode) {

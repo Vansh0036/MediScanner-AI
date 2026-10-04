@@ -20,6 +20,7 @@ import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import java.io.File
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanReportScreen(

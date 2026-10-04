@@ -12,13 +12,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.mediscannerai.data.local.AppDatabase
 import com.example.mediscannerai.data.local.ReportEntity
+import com.example.mediscannerai.domain.model.TestResult
+import com.example.mediscannerai.domain.usecase.ParseReportTextUseCase
 import com.example.mediscannerai.presentation.scanner.MarkdownText
+import com.example.mediscannerai.data.repository.ReportRepository
 
-private enum class SavedTab { Explanation, Questions, RawText }
+private enum class SavedTab { Explanation, Values, Questions, RawText }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +33,7 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
     var tab by remember { mutableStateOf(SavedTab.Explanation) }
 
     LaunchedEffect(reportId) {
-        report = AppDatabase.getInstance(context).reportDao().getById(reportId)
+        report = ReportRepository(AppDatabase.getInstance(context).reportDao()).getById(reportId)
         isLoaded = true
     }
 
@@ -70,6 +74,11 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
                 }
 
                 else -> {
+                    // Rebuilt from the saved text each time, so older reports get it too.
+                    val results = remember(loadedReport.rawText) {
+                        ParseReportTextUseCase()(loadedReport.rawText).results
+                    }
+
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -78,6 +87,11 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
                             selected = tab == SavedTab.Explanation,
                             onClick = { tab = SavedTab.Explanation },
                             label = { Text("Explanation") }
+                        )
+                        FilterChip(
+                            selected = tab == SavedTab.Values,
+                            onClick = { tab = SavedTab.Values },
+                            label = { Text("Test Values") }
                         )
                         FilterChip(
                             selected = tab == SavedTab.Questions,
@@ -105,6 +119,33 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
                                                 .padding(16.dp)
                                                 .verticalScroll(rememberScrollState())
                                         )
+                                    }
+                                }
+                            }
+
+                            SavedTab.Values -> {
+                                if (results.isEmpty()) {
+                                    CenteredNote(
+                                        "No individual test values could be identified from " +
+                                                "this report's layout. The Raw Text tab has the " +
+                                                "full text."
+                                    )
+                                } else {
+                                    Column(
+                                        modifier = Modifier
+                                            .padding(16.dp)
+                                            .verticalScroll(rememberScrollState()),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text(
+                                            "Values found on the report. These are read " +
+                                                    "automatically, so check them against the original.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        results.forEach { result ->
+                                            TestValueRow(result)
+                                        }
                                     }
                                 }
                             }
@@ -159,6 +200,44 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TestValueRow(result: TestResult) {
+    val unit = result.unit?.let { " $it" } ?: ""
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                result.testName,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Result: ${result.value ?: "?"}$unit",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            result.referenceRange?.let {
+                Text(
+                    "Reference range on the report: $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            result.flag?.let {
+                val word = when (it) {
+                    "H" -> "High (H)"
+                    "L" -> "Low (L)"
+                    else -> it
+                }
+                Text(
+                    "Flag printed on the report: $word",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
