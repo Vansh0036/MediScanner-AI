@@ -7,6 +7,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.mediscannerai.presentation.history.HistoryScreen
+import com.example.mediscannerai.presentation.history.SavedReportScreen
 import com.example.mediscannerai.presentation.home.HomeScreen
 import com.example.mediscannerai.presentation.scanner.AiExplanationScreen
 import com.example.mediscannerai.presentation.scanner.DoctorQuestionsScreen
@@ -30,7 +32,9 @@ fun MediScannerNavGraph() {
             ScanReportScreen(
                 onBack = { navController.popBackStack() },
                 onReportCaptured = { uri ->
-                    navController.navigate(Screen.OcrResult.buildRoute(uri.toString(), isPdf = false))
+                    navController.navigate(Screen.OcrResult.buildRoute(uri.toString(), isPdf = false)) {
+                        popUpTo(Screen.Scan.route) { inclusive = true }
+                    }
                 }
             )
         }
@@ -38,7 +42,9 @@ fun MediScannerNavGraph() {
             UploadReportScreen(
                 onBack = { navController.popBackStack() },
                 onReportSelected = { uri, isPdf ->
-                    navController.navigate(Screen.OcrResult.buildRoute(uri.toString(), isPdf))
+                    navController.navigate(Screen.OcrResult.buildRoute(uri.toString(), isPdf)) {
+                        popUpTo(Screen.Upload.route) { inclusive = true }
+                    }
                 }
             )
         }
@@ -65,14 +71,33 @@ fun MediScannerNavGraph() {
         composable(Screen.AiExplanation.route) {
             AiExplanationScreen(
                 onBack = { navController.popBackStack() },
-                onViewDoctorQuestions = { navController.navigate(Screen.DoctorQuestions.route) }
+                onViewDoctorQuestions = { navController.navigate(Screen.DoctorQuestions.route) },
+                onDone = { navController.popBackStack(Screen.Home.route, inclusive = false) }
             )
         }
         composable(Screen.DoctorQuestions.route) {
-            DoctorQuestionsScreen(onBack = { navController.popBackStack() })
+            DoctorQuestionsScreen(
+                onBack = { navController.popBackStack() },
+                onDone = { navController.popBackStack(Screen.Home.route, inclusive = false) }
+            )
         }
         composable(Screen.ReportHistory.route) {
-            PlaceholderScreen("Report History") { navController.popBackStack() }
+            HistoryScreen(
+                onBack = { navController.popBackStack() },
+                onOpenReport = { id ->
+                    navController.navigate(Screen.SavedReport.buildRoute(id))
+                }
+            )
+        }
+        composable(
+            route = Screen.SavedReport.route,
+            arguments = listOf(navArgument("reportId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val reportId = backStackEntry.arguments?.getLong("reportId") ?: 0L
+            SavedReportScreen(
+                reportId = reportId,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Screen.MedicineInfo.route) {
             PlaceholderScreen("Medicine Information") { navController.popBackStack() }

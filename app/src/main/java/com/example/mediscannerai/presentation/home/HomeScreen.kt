@@ -1,5 +1,6 @@
 package com.example.mediscannerai.presentation.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,8 +14,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.mediscannerai.presentation.history.HistoryViewModel
 import com.example.mediscannerai.presentation.navigation.Screen
 import com.example.mediscannerai.ui.theme.MediScannerAITheme
 
@@ -22,6 +26,8 @@ import com.example.mediscannerai.ui.theme.MediScannerAITheme
 @Composable
 fun HomeScreen(navController: NavHostController) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val historyViewModel: HistoryViewModel = viewModel()
+    val reports by historyViewModel.reports.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -100,11 +106,43 @@ fun HomeScreen(navController: NavHostController) {
                 )
             }
 
-            SectionCard(
-                title = "Recent Reports",
-                icon = Icons.Default.List,
-                emptyText = "No reports yet. Scan or upload your first report to get started."
-            )
+            Card(
+                onClick = { navController.navigate(Screen.ReportHistory.route) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.List, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Recent Reports",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (reports.isEmpty()) {
+                        Text(
+                            "No reports yet. Scan or upload your first report to get started.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        reports.take(3).forEach { report ->
+                            Text(
+                                report.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        navController.navigate(Screen.SavedReport.buildRoute(report.id))
+                                    }
+                                    .padding(vertical = 10.dp)
+                            )
+                        }
+                    }
+                }
+            }
 
             SectionCard(
                 title = "Medicine Information",
