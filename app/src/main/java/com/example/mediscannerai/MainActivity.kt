@@ -7,12 +7,20 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.example.mediscannerai.data.local.AppSettings
 import com.example.mediscannerai.data.local.ReportMigration
 import com.example.mediscannerai.data.local.ThemeMode
 import com.example.mediscannerai.presentation.navigation.MediScannerNavGraph
+import com.example.mediscannerai.presentation.splash.SplashOverlay
 import com.example.mediscannerai.ui.theme.MediScannerAITheme
 import kotlinx.coroutines.launch
 
@@ -28,6 +36,8 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.Light -> false
                 ThemeMode.Dark -> true
             }
+            // Survives rotation, so the intro plays once per app start.
+            var showSplash by rememberSaveable { mutableStateOf(true) }
 
             DisposableEffect(darkTheme) {
                 this@MainActivity.enableEdgeToEdge(
@@ -44,7 +54,12 @@ class MainActivity : ComponentActivity() {
             }
 
             MediScannerAITheme(darkTheme = darkTheme) {
-                MediScannerNavGraph()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    MediScannerNavGraph()
+                    if (showSplash) {
+                        SplashOverlay(onFinished = { showSplash = false })
+                    }
+                }
             }
         }
     }

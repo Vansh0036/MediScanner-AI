@@ -49,7 +49,8 @@ private const val PRIVACY_TEXT =
             "an online AI service (Groq). The app first removes details such as names, ID " +
             "numbers, phone numbers, emails and address lines. This is automatic and can " +
             "miss things, which is why you see a preview before the first request.\n" +
-            "Medicine names you type in Medicine Information are also sent to the same service.\n\n" +
+            "Medicine names you type in Medicine Information are also sent to the same service. " +
+            "Medicines you look up are saved, encrypted, on this phone so you can read them later, and you can delete them there.\n\n" +
             "On your phone only\n" +
             "Reading text from photos and PDFs happens on your device. Temporary copies of " +
             "report images are deleted after the text is read. Health Trends are built from " +
