@@ -1,15 +1,22 @@
 package com.example.mediscannerai.presentation.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -28,6 +35,7 @@ fun HomeScreen(navController: NavHostController) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val historyViewModel: HistoryViewModel = viewModel()
     val reports by historyViewModel.reports.collectAsStateWithLifecycle()
+    val colors = MaterialTheme.colorScheme
 
     Scaffold(
         topBar = {
@@ -70,23 +78,9 @@ fun HomeScreen(navController: NavHostController) {
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column {
-                Text(
-                    text = "Understand your lab reports",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Scan or upload a medical report and get a simple, " +
-                            "educational explanation. This app does not diagnose or " +
-                            "replace your doctor.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            HeroBanner()
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -95,12 +89,16 @@ fun HomeScreen(navController: NavHostController) {
                 PrimaryActionButton(
                     label = "Scan Report",
                     icon = Icons.Default.PhotoCamera,
+                    container = colors.primary,
+                    content = colors.onPrimary,
                     modifier = Modifier.weight(1f),
                     onClick = { navController.navigate(Screen.Scan.route) }
                 )
                 PrimaryActionButton(
                     label = "Upload Report",
                     icon = Icons.Default.UploadFile,
+                    container = colors.secondary,
+                    content = colors.onSecondary,
                     modifier = Modifier.weight(1f),
                     onClick = { navController.navigate(Screen.Upload.route) }
                 )
@@ -112,12 +110,18 @@ fun HomeScreen(navController: NavHostController) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.List, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        IconBadge(Icons.Default.List, colors.primary, colors.primaryContainer)
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             "Recent Reports",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = colors.onSurfaceVariant
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -125,7 +129,7 @@ fun HomeScreen(navController: NavHostController) {
                         Text(
                             "No reports yet. Scan or upload your first report to get started.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = colors.onSurfaceVariant
                         )
                     } else {
                         reports.take(3).forEach { report ->
@@ -147,14 +151,18 @@ fun HomeScreen(navController: NavHostController) {
             SectionCard(
                 title = "Medicine Information",
                 icon = Icons.Default.Favorite,
-                emptyText = "Search general educational information about medicines.",
+                description = "Search general educational information about medicines.",
+                accent = colors.secondary,
+                accentContainer = colors.secondaryContainer,
                 onClick = { navController.navigate(Screen.MedicineInfo.route) }
             )
 
             SectionCard(
                 title = "Health Trends",
                 icon = Icons.Default.DateRange,
-                emptyText = "Once you've saved a few reports, track changes over time here.",
+                description = "Once you've saved a few reports, track changes over time here.",
+                accent = colors.tertiary,
+                accentContainer = colors.tertiaryContainer,
                 onClick = { navController.navigate(Screen.HealthTrends.route) }
             )
 
@@ -164,25 +172,77 @@ fun HomeScreen(navController: NavHostController) {
 }
 
 @Composable
+private fun HeroBanner() {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Brush.linearGradient(listOf(colors.primary, colors.secondary)))
+            .padding(20.dp)
+    ) {
+        Column {
+            Text(
+                text = "Understand your lab reports",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = colors.onPrimary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Scan or upload a medical report and get a simple, " +
+                        "educational explanation. This app does not diagnose or " +
+                        "replace your doctor.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onPrimary.copy(alpha = 0.92f)
+            )
+        }
+    }
+}
+
+@Composable
 private fun PrimaryActionButton(
     label: String,
     icon: ImageVector,
+    container: Color,
+    content: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     ElevatedCard(
-        modifier = modifier.height(96.dp),
-        onClick = onClick
+        modifier = modifier.height(104.dp),
+        onClick = onClick,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = container,
+            contentColor = content
+        )
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(icon, contentDescription = label, modifier = Modifier.size(28.dp))
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge)
+            Icon(icon, contentDescription = label, modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
         }
+    }
+}
+
+@Composable
+private fun IconBadge(icon: ImageVector, tint: Color, background: Color) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(background),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = tint)
     }
 }
 
@@ -190,24 +250,38 @@ private fun PrimaryActionButton(
 private fun SectionCard(
     title: String,
     icon: ImageVector,
-    emptyText: String,
+    description: String,
+    accent: Color,
+    accentContainer: Color,
     onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconBadge(icon, accent, accentContainer)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = emptyText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
