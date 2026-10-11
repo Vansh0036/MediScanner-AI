@@ -1,5 +1,6 @@
 package com.example.mediscannerai.presentation.history
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,10 +18,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.mediscannerai.data.local.AppDatabase
 import com.example.mediscannerai.data.local.ReportEntity
+import com.example.mediscannerai.data.repository.ReportRepository
 import com.example.mediscannerai.domain.model.TestResult
 import com.example.mediscannerai.domain.usecase.ParseReportTextUseCase
+import com.example.mediscannerai.domain.usecase.RangeCheck
+import com.example.mediscannerai.domain.usecase.RangeStatus
 import com.example.mediscannerai.presentation.scanner.MarkdownText
-import com.example.mediscannerai.data.repository.ReportRepository
 
 private enum class SavedTab { Explanation, Values, Questions, RawText }
 
@@ -75,8 +78,10 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
 
                 else -> {
                     // Rebuilt from the saved text each time, so older reports get it too.
-                    val results = remember(loadedReport.rawText) {
-                        ParseReportTextUseCase()(loadedReport.rawText).results
+                    val checked = remember(loadedReport.rawText) {
+                        ParseReportTextUseCase()(loadedReport.rawText).results.map {
+                            it to RangeCheck.evaluate(it.value, it.referenceRange, it.flag)
+                        }
                     }
 
                     Row(
@@ -124,7 +129,7 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
                             }
 
                             SavedTab.Values -> {
-                                if (results.isEmpty()) {
+                                if (checked.isEmpty()) {
                                     CenteredNote(
                                         "No individual test values could be identified from " +
                                                 "this report's layout. The Raw Text tab has the " +
@@ -137,15 +142,17 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
                                             .verticalScroll(rememberScrollState()),
                                         verticalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
+                                        RangeSummary(checked.map { it.second })
+                                        checked.forEach { (result, status) ->
+                                            TestValueRow(result, status)
+                                        }
                                         Text(
-                                            "Values found on the report. These are read " +
-                                                    "automatically, so check them against the original.",
+                                            "Values are read automatically and compared with the " +
+                                                    "range printed on the report. Check them against " +
+                                                    "the original, and discuss your results with a doctor.",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
-                                        results.forEach { result ->
-                                            TestValueRow(result)
-                                        }
                                     }
                                 }
                             }
@@ -165,7 +172,7 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
                                         verticalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
                                         questions.forEach { question ->
-                                            Text("•  $question")
+                                            Text("\u2022  $question")
                                         }
                                     }
                                 }
@@ -206,9 +213,59 @@ fun SavedReportScreen(reportId: Long, onBack: () -> Unit) {
 }
 
 @Composable
-private fun TestValueRow(result: TestResult) {
+private fun RangeSummary(statuses: List<RangeStatus>) {
+    val outside = statuses.count { it == RangeStatus.ABOVE || it == RangeStatus.BELOW }
+    val unknown = statuses.count { it == RangeStatus.UNKNOWN }
+    val colors = MaterialTheme.colorScheme
+
+    val headline = when {
+        outside > 0 -> "$outside of ${statuses.size} values " +
+                (if (outside == 1) "is" else "are") + " outside the range printed on the report."
+        else -> "No values outside the printed range were found."
+    }
+    val note = if (unknown > 0) {
+        "$unknown could not be compared because no readable range was found."
+    } else null
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (outside > 0) colors.errorContainer else colors.surfaceVariant
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                headline,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (outside > 0) colors.onErrorContainer else colors.onSurfaceVariant
+            )
+            if (note != null) {
+                Text(
+                    note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (outside > 0) colors.onErrorContainer else colors.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TestValueRow(result: TestResult, status: RangeStatus) {
+    val colors = MaterialTheme.colorScheme
+    val outside = status == RangeStatus.ABOVE || status == RangeStatus.BELOW
     val unit = result.unit?.let { " $it" } ?: ""
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+
+    OutlinedCard(
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = if (outside) colors.errorContainer.copy(alpha = 0.4f) else colors.surface
+        ),
+        border = BorderStroke(
+            width = if (outside) 2.dp else 1.dp,
+            color = if (outside) colors.error else colors.outlineVariant
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
                 result.testName,
@@ -218,27 +275,33 @@ private fun TestValueRow(result: TestResult) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 "Result: ${result.value ?: "?"}$unit",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (outside) FontWeight.Bold else FontWeight.Normal,
+                color = if (outside) colors.error else colors.onSurface
             )
             result.referenceRange?.let {
                 Text(
                     "Reference range on the report: $it",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = colors.onSurfaceVariant
                 )
             }
-            result.flag?.let {
-                val word = when (it) {
-                    "H" -> "High (H)"
-                    "L" -> "Low (L)"
-                    else -> it
-                }
-                Text(
-                    "Flag printed on the report: $word",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+            val label = when (status) {
+                RangeStatus.ABOVE -> "\u25B2 Above the range printed on the report"
+                RangeStatus.BELOW -> "\u25BC Below the range printed on the report"
+                RangeStatus.WITHIN -> "Within the printed range"
+                RangeStatus.UNKNOWN ->
+                    if (result.referenceRange.isNullOrBlank()) "No range printed"
+                    else "Could not compare with the range"
             }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (outside) FontWeight.Bold else FontWeight.Normal,
+                color = if (outside) colors.error else colors.onSurfaceVariant
+            )
         }
     }
 }
