@@ -24,46 +24,74 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.example.mediscannerai.presentation.history.HistoryViewModel
 import com.example.mediscannerai.presentation.navigation.Screen
+import com.example.mediscannerai.presentation.reminder.ReminderViewModel
+import com.example.mediscannerai.reminder.ReminderScheduler
 import com.example.mediscannerai.ui.theme.MediScannerAITheme
 
-@OptIn(ExperimentalMaterial3Api::class)
+private data class HomeReport(val id: Long, val name: String)
+
+/** Connects the screen to the real data and navigation. */
 @Composable
 fun HomeScreen(navController: NavHostController) {
-    var selectedTab by remember { mutableIntStateOf(0) }
     val historyViewModel: HistoryViewModel = viewModel()
     val reports by historyViewModel.reports.collectAsStateWithLifecycle()
+
+    val reminderViewModel: ReminderViewModel = viewModel()
+    val medicines by reminderViewModel.medicines.collectAsStateWithLifecycle()
+    val slotTimes by reminderViewModel.slotTimes.collectAsStateWithLifecycle()
+    val nextReminder = remember(medicines, slotTimes) {
+        medicines?.let { ReminderScheduler.nextReminderLabel(it, slotTimes) }
+    }
+
+    HomeContent(
+        reports = reports.map { HomeReport(it.id, it.name) },
+        nextReminder = nextReminder,
+        onNavigate = { route -> navController.navigate(route) },
+        onOpenReport = { id -> navController.navigate(Screen.SavedReport.buildRoute(id)) }
+    )
+}
+
+/** Only draws what it is given, so the Android Studio preview can show it. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeContent(
+    reports: List<HomeReport>,
+    nextReminder: String?,
+    onNavigate: (String) -> Unit,
+    onOpenReport: (Long) -> Unit
+) {
+    var selectedTab by remember { mutableIntStateOf(0) }
     val colors = MaterialTheme.colorScheme
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("MediScanner AI", fontWeight = FontWeight.Bold) }
+                title = { Text("MediScanner AI", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = { onNavigate(Screen.Settings.route) }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
             )
         },
         bottomBar = {
             NavigationBar {
-                val items = listOf(
-                    Triple("Home", Icons.Default.Home, 0),
-                    Triple("History", Icons.Default.List, 1),
-                    Triple("Medicine", Icons.Default.Favorite, 2),
-                    Triple("Trends", Icons.Default.DateRange, 3),
-                    Triple("Settings", Icons.Default.Settings, 4)
+                val tabs = listOf(
+                    Triple("Home", Icons.Default.Home, null as String?),
+                    Triple("History", Icons.Default.List, Screen.ReportHistory.route),
+                    Triple("Reminders", Icons.Default.Notifications, Screen.MedicineReminders.route),
+                    Triple("Medicine", Icons.Default.Medication, Screen.MedicineInfo.route),
+                    Triple("Trends", Icons.Default.DateRange, Screen.HealthTrends.route)
                 )
-                items.forEach { (label, icon, index) ->
+                tabs.forEachIndexed { index, (label, icon, route) ->
                     NavigationBarItem(
                         selected = selectedTab == index,
                         onClick = {
                             selectedTab = index
-                            when (index) {
-                                1 -> navController.navigate(Screen.ReportHistory.route)
-                                2 -> navController.navigate(Screen.MedicineInfo.route)
-                                3 -> navController.navigate(Screen.HealthTrends.route)
-                                4 -> navController.navigate(Screen.Settings.route)
-                                // 0 (Home) does nothing — we're already there
-                            }
+                            // Home (no route) does nothing: we are already there.
+                            route?.let(onNavigate)
                         },
                         icon = { Icon(icon, contentDescription = label) },
                         label = { Text(label) }
@@ -92,7 +120,7 @@ fun HomeScreen(navController: NavHostController) {
                     container = colors.primary,
                     content = colors.onPrimary,
                     modifier = Modifier.weight(1f),
-                    onClick = { navController.navigate(Screen.Scan.route) }
+                    onClick = { onNavigate(Screen.Scan.route) }
                 )
                 PrimaryActionButton(
                     label = "Upload Report",
@@ -100,12 +128,12 @@ fun HomeScreen(navController: NavHostController) {
                     container = colors.secondary,
                     content = colors.onSecondary,
                     modifier = Modifier.weight(1f),
-                    onClick = { navController.navigate(Screen.Upload.route) }
+                    onClick = { onNavigate(Screen.Upload.route) }
                 )
             }
 
             Card(
-                onClick = { navController.navigate(Screen.ReportHistory.route) },
+                onClick = { onNavigate(Screen.ReportHistory.route) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -138,9 +166,7 @@ fun HomeScreen(navController: NavHostController) {
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        navController.navigate(Screen.SavedReport.buildRoute(report.id))
-                                    }
+                                    .clickable { onOpenReport(report.id) }
                                     .padding(vertical = 10.dp)
                             )
                         }
@@ -149,12 +175,22 @@ fun HomeScreen(navController: NavHostController) {
             }
 
             SectionCard(
+                title = "Medicine Reminders",
+                icon = Icons.Default.Notifications,
+                description = nextReminder
+                    ?: "Set your medicines by meal time and see your daily schedule.",
+                accent = colors.primary,
+                accentContainer = colors.primaryContainer,
+                onClick = { onNavigate(Screen.MedicineReminders.route) }
+            )
+
+            SectionCard(
                 title = "Medicine Information",
-                icon = Icons.Default.Favorite,
+                icon = Icons.Default.Medication,
                 description = "Search general educational information about medicines.",
                 accent = colors.secondary,
                 accentContainer = colors.secondaryContainer,
-                onClick = { navController.navigate(Screen.MedicineInfo.route) }
+                onClick = { onNavigate(Screen.MedicineInfo.route) }
             )
 
             SectionCard(
@@ -163,7 +199,7 @@ fun HomeScreen(navController: NavHostController) {
                 description = "Once you've saved a few reports, track changes over time here.",
                 accent = colors.tertiary,
                 accentContainer = colors.tertiaryContainer,
-                onClick = { navController.navigate(Screen.HealthTrends.route) }
+                onClick = { onNavigate(Screen.HealthTrends.route) }
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -291,6 +327,14 @@ private fun SectionCard(
 @Composable
 fun HomeScreenPreview() {
     MediScannerAITheme {
-        HomeScreen(navController = rememberNavController())
+        HomeContent(
+            reports = listOf(
+                HomeReport(1, "Lab report - 06/10/2026"),
+                HomeReport(2, "Lab report - 17/03/2026")
+            ),
+            nextReminder = "Next: After dinner, today 08:30 pm \u00B7 2 medicines",
+            onNavigate = {},
+            onOpenReport = {}
+        )
     }
 }

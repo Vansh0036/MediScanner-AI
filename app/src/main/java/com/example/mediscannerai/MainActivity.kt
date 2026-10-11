@@ -21,6 +21,8 @@ import com.example.mediscannerai.data.local.ReportMigration
 import com.example.mediscannerai.data.local.ThemeMode
 import com.example.mediscannerai.presentation.navigation.MediScannerNavGraph
 import com.example.mediscannerai.presentation.splash.SplashOverlay
+import com.example.mediscannerai.reminder.ReminderNotifier
+import com.example.mediscannerai.reminder.ReminderScheduler
 import com.example.mediscannerai.ui.theme.MediScannerAITheme
 import kotlinx.coroutines.launch
 
@@ -28,7 +30,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettings.load(applicationContext)
-        lifecycleScope.launch { ReportMigration.run(applicationContext) }
+        ReminderNotifier.ensureChannel(applicationContext)
+        lifecycleScope.launch {
+            ReportMigration.run(applicationContext)
+            ReminderScheduler.rescheduleAll(applicationContext)
+        }
 
         setContent {
             val darkTheme = when (AppSettings.themeMode) {

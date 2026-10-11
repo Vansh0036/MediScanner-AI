@@ -11,6 +11,8 @@ import com.example.mediscannerai.presentation.history.HistoryScreen
 import com.example.mediscannerai.presentation.history.SavedReportScreen
 import com.example.mediscannerai.presentation.home.HomeScreen
 import com.example.mediscannerai.presentation.medicine.MedicineInfoScreen
+import com.example.mediscannerai.presentation.reminder.MedicineEditScreen
+import com.example.mediscannerai.presentation.reminder.ReminderListScreen
 import com.example.mediscannerai.presentation.scanner.AiExplanationScreen
 import com.example.mediscannerai.presentation.scanner.DoctorQuestionsScreen
 import com.example.mediscannerai.presentation.scanner.OcrResultScreen
@@ -106,7 +108,21 @@ fun MediScannerNavGraph() {
             MedicineInfoScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.MedicineReminders.route) {
-            PlaceholderScreen("Medicine Reminders") { navController.popBackStack() }
+            ReminderListScreen(
+                onBack = { navController.popBackStack() },
+                onAdd = { navController.navigate(Screen.MedicineEdit.buildRoute(-1L)) },
+                onEdit = { id -> navController.navigate(Screen.MedicineEdit.buildRoute(id)) }
+            )
+        }
+        composable(
+            route = Screen.MedicineEdit.route,
+            arguments = listOf(navArgument("medicineId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val medicineId = backStackEntry.arguments?.getLong("medicineId") ?: -1L
+            MedicineEditScreen(
+                medicineId = medicineId,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(Screen.HealthTrends.route) {
             TrendsScreen(onBack = { navController.popBackStack() })
