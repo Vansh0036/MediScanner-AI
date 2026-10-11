@@ -16,9 +16,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import com.example.mediscannerai.data.local.ActiveProfile
+import com.example.mediscannerai.data.local.AppDatabase
 import com.example.mediscannerai.data.local.AppSettings
 import com.example.mediscannerai.data.local.ReportMigration
 import com.example.mediscannerai.data.local.ThemeMode
+import com.example.mediscannerai.data.repository.ProfileRepository
 import com.example.mediscannerai.presentation.navigation.MediScannerNavGraph
 import com.example.mediscannerai.presentation.splash.SplashOverlay
 import com.example.mediscannerai.reminder.ReminderNotifier
@@ -30,8 +33,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppSettings.load(applicationContext)
+        ActiveProfile.load(applicationContext)
         ReminderNotifier.ensureChannel(applicationContext)
         lifecycleScope.launch {
+            ProfileRepository(AppDatabase.getInstance(applicationContext).profileDao())
+                .ensureDefault()
             ReportMigration.run(applicationContext)
             ReminderScheduler.rescheduleAll(applicationContext)
         }

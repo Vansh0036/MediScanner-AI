@@ -1,5 +1,6 @@
 package com.example.mediscannerai.data.repository
 
+import com.example.mediscannerai.data.local.ActiveProfile
 import com.example.mediscannerai.data.local.ReportCrypto
 import com.example.mediscannerai.data.local.ReportDao
 import com.example.mediscannerai.data.local.ReportEntity
@@ -19,7 +20,8 @@ class ReportRepository(private val dao: ReportDao) {
     suspend fun saveReport(
         report: ParsedReport,
         aiSummary: String,
-        doctorQuestions: String = ""
+        doctorQuestions: String = "",
+        profileId: Long = ActiveProfile.id.value
     ): Long {
         val name = report.reportDate?.let { "Lab report - $it" } ?: "Lab report"
         return dao.insert(
@@ -28,13 +30,19 @@ class ReportRepository(private val dao: ReportDao) {
                 createdAt = System.currentTimeMillis(),
                 rawText = ReportCrypto.encryptIfNeeded(report.rawText),
                 aiSummary = ReportCrypto.encryptIfNeeded(aiSummary),
-                doctorQuestions = ReportCrypto.encryptIfNeeded(doctorQuestions)
+                doctorQuestions = ReportCrypto.encryptIfNeeded(doctorQuestions),
+                profileId = profileId
             )
         )
     }
 
     fun observeAll(): Flow<List<ReportEntity>> =
         dao.observeAll()
+            .map { list -> list.map { it.decrypted() } }
+            .flowOn(Dispatchers.Default)
+
+    fun observeForProfile(profileId: Long): Flow<List<ReportEntity>> =
+        dao.observeForProfile(profileId)
             .map { list -> list.map { it.decrypted() } }
             .flowOn(Dispatchers.Default)
 

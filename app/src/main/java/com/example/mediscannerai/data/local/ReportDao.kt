@@ -14,6 +14,9 @@ interface ReportDao {
     @Query("SELECT * FROM reports ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<ReportEntity>>
 
+    @Query("SELECT * FROM reports WHERE profileId = :profileId ORDER BY createdAt DESC")
+    fun observeForProfile(profileId: Long): Flow<List<ReportEntity>>
+
     @Query("SELECT * FROM reports")
     suspend fun getAll(): List<ReportEntity>
 
@@ -34,4 +37,7 @@ interface ReportDao {
 
     @Query("DELETE FROM reports WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM reports WHERE profileId = :profileId")
+    suspend fun deleteForProfile(profileId: Long)
 }

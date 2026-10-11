@@ -3,6 +3,7 @@ package com.example.mediscannerai.presentation.reminder
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.mediscannerai.data.local.ActiveProfile
 import com.example.mediscannerai.data.local.AppDatabase
 import com.example.mediscannerai.data.local.IntakeEntity
 import com.example.mediscannerai.data.local.ReminderMedicineEntity
@@ -27,8 +28,10 @@ class ReminderViewModel(application: Application) : AndroidViewModel(application
     private val repository = ReminderRepository(database.reminderMedicineDao())
     private val intakeDao = database.intakeDao()
 
-    /** null while loading, then the list (possibly empty). */
-    val medicines: StateFlow<List<ReminderMedicineEntity>?> = repository.observeAll()
+    /** Medicines of the person on screen. null while loading, then the list (possibly empty). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val medicines: StateFlow<List<ReminderMedicineEntity>?> = ActiveProfile.id
+        .flatMapLatest { repository.observeForProfile(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _slotTimes = MutableStateFlow(

@@ -1,5 +1,6 @@
 package com.example.mediscannerai.data.repository
 
+import com.example.mediscannerai.data.local.ActiveProfile
 import com.example.mediscannerai.data.local.ReminderMedicineDao
 import com.example.mediscannerai.data.local.ReminderMedicineEntity
 import com.example.mediscannerai.data.local.ReportCrypto
@@ -16,13 +17,24 @@ class ReminderRepository(private val dao: ReminderMedicineDao) {
             .map { list -> list.map { it.decrypted() } }
             .flowOn(Dispatchers.Default)
 
+    fun observeForProfile(profileId: Long): Flow<List<ReminderMedicineEntity>> =
+        dao.observeForProfile(profileId)
+            .map { list -> list.map { it.decrypted() } }
+            .flowOn(Dispatchers.Default)
+
     suspend fun getAll(): List<ReminderMedicineEntity> = dao.getAll().map { it.decrypted() }
 
     suspend fun get(id: Long): ReminderMedicineEntity? = dao.getById(id)?.decrypted()
 
-    /** Inserts a new medicine (id 0) or updates an existing one. Returns its id. */
+    /** Inserts a new medicine (id 0) for the active person, or updates an existing one. */
     suspend fun save(medicine: ReminderMedicineEntity): Long {
+        val owner = if (medicine.id == 0L) {
+            ActiveProfile.id.value
+        } else {
+            dao.getById(medicine.id)?.profileId ?: medicine.profileId
+        }
         val encrypted = medicine.copy(
+            profileId = owner,
             name = ReportCrypto.encryptIfNeeded(medicine.name.trim()),
             amountNote = ReportCrypto.encryptIfNeeded(medicine.amountNote.trim()),
             notes = ReportCrypto.encryptIfNeeded(medicine.notes.trim())

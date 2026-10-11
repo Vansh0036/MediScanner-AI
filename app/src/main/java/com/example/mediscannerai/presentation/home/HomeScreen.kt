@@ -26,6 +26,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.mediscannerai.presentation.history.HistoryViewModel
 import com.example.mediscannerai.presentation.navigation.Screen
+import com.example.mediscannerai.presentation.profile.ProfileChip
+import com.example.mediscannerai.presentation.profile.ProfileSwitcher
 import com.example.mediscannerai.presentation.reminder.ReminderViewModel
 import com.example.mediscannerai.reminder.ReminderScheduler
 import com.example.mediscannerai.ui.theme.MediScannerAITheme
@@ -48,6 +50,9 @@ fun HomeScreen(navController: NavHostController) {
     HomeContent(
         reports = reports.map { HomeReport(it.id, it.name) },
         nextReminder = nextReminder,
+        profileSwitcher = {
+            ProfileSwitcher(onManage = { navController.navigate(Screen.Profiles.route) })
+        },
         onNavigate = { route -> navController.navigate(route) },
         onOpenReport = { id -> navController.navigate(Screen.SavedReport.buildRoute(id)) }
     )
@@ -59,6 +64,7 @@ fun HomeScreen(navController: NavHostController) {
 private fun HomeContent(
     reports: List<HomeReport>,
     nextReminder: String?,
+    profileSwitcher: @Composable () -> Unit,
     onNavigate: (String) -> Unit,
     onOpenReport: (Long) -> Unit
 ) {
@@ -70,6 +76,7 @@ private fun HomeContent(
             TopAppBar(
                 title = { Text("MediScanner AI", fontWeight = FontWeight.Bold) },
                 actions = {
+                    profileSwitcher()
                     IconButton(onClick = { onNavigate(Screen.Settings.route) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -333,6 +340,7 @@ fun HomeScreenPreview() {
                 HomeReport(2, "Lab report - 17/03/2026")
             ),
             nextReminder = "Next: After dinner, today 08:30 pm \u00B7 2 medicines",
+            profileSwitcher = { ProfileChip(name = "Me", onClick = {}) },
             onNavigate = {},
             onOpenReport = {}
         )

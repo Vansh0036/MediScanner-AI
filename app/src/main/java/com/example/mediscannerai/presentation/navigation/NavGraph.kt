@@ -11,6 +11,7 @@ import com.example.mediscannerai.presentation.history.HistoryScreen
 import com.example.mediscannerai.presentation.history.SavedReportScreen
 import com.example.mediscannerai.presentation.home.HomeScreen
 import com.example.mediscannerai.presentation.medicine.MedicineInfoScreen
+import com.example.mediscannerai.presentation.profile.ManageProfilesScreen
 import com.example.mediscannerai.presentation.reminder.MedicineEditScreen
 import com.example.mediscannerai.presentation.reminder.ReminderListScreen
 import com.example.mediscannerai.presentation.scanner.AiExplanationScreen
@@ -129,6 +130,9 @@ fun MediScannerNavGraph() {
         }
         composable(Screen.Settings.route) {
             SettingsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.Profiles.route) {
+            ManageProfilesScreen(onBack = { navController.popBackStack() })
         }
     }
 }

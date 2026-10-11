@@ -1,5 +1,6 @@
 package com.example.mediscannerai.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -10,5 +11,7 @@ data class ReportEntity(
     val createdAt: Long,
     val rawText: String,
     val aiSummary: String,
-    val doctorQuestions: String
+    val doctorQuestions: String,
+    // Which person this report belongs to. Older reports belong to person 1 ("Me").
+    @ColumnInfo(defaultValue = "1") val profileId: Long = 1
 )
